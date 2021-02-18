@@ -1,5 +1,6 @@
 package com.theoutliers.mapitdaily
 
+//import com.google.android.gms.location.places.ui.PlacePicker
 import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
@@ -15,7 +16,6 @@ import com.google.android.gms.common.GooglePlayServicesNotAvailableException
 import com.google.android.gms.common.GooglePlayServicesRepairableException
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
-import com.google.android.gms.location.places.ui.PlacePicker
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -23,7 +23,15 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.widget.Autocomplete
+import com.google.android.libraries.places.widget.AutocompleteActivity
+import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.sucho.placepicker.AddressData
+import com.sucho.placepicker.Constants
+import com.sucho.placepicker.PlacePicker
 import java.io.IOException
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
@@ -74,6 +82,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
         createLocationRequest()
+        Places.initialize(getApplicationContext(), resources.getString(R.string.google_maps_key));
+
+
 
 
     }
@@ -231,15 +242,42 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                 startLocationUpdates()
             }
         }
-        if (requestCode == PLACE_PICKER_REQUEST) {
-            if (resultCode == RESULT_OK) {
-                val place = PlacePicker.getPlace(this, data)
-                var addressText = place.name.toString()
-                addressText += "\n" + place.address.toString()
+        if (requestCode == 12) {
+            if (resultCode == Activity.RESULT_OK) {
+//                Places.initialize(getApplicationContext(), resources.getString(R.string.google_maps_key));
+//                val placesClient: PlacesClient = Places.createClient(this)
+                //placesClient.fetchPlace()
+                //val place = PlacePicker.getPlace(this, data)
+                val place = data?.getParcelableExtra<AddressData>(Constants.ADDRESS_INTENT)
+                var addressText = place.toString();
+                addressText += "\n" + place.toString()
 
-                placeMarkerOnMap(place.latLng)
+                //placeMarkerOnMap(place.latLng)
             }
         }
+
+        if (requestCode == 1) {
+            when (resultCode) {
+                Activity.RESULT_OK -> {
+                    data?.let {
+                        val place = Autocomplete.getPlaceFromIntent(data)
+                        Log.i("MapsActivty", "Place: ${place.name}, ${place.id}")
+                    }
+                }
+                AutocompleteActivity.RESULT_ERROR -> {
+                    // TODO: Handle the error.
+                    data?.let {
+                        val status = Autocomplete.getStatusFromIntent(data)
+                        status.statusMessage?.let { it1 -> Log.i("MapsActivty", it1) }
+                    }
+                }
+                Activity.RESULT_CANCELED -> {
+                    // The user canceled the operation.
+                }
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
 
     }
 
@@ -257,16 +295,54 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
     }
 
-    private fun loadPlacePicker() {
+    private fun loadPlacePickerX() {
+//        val builder = PlacePicker.IntentBuilder()
         val builder = PlacePicker.IntentBuilder()
+            .setLatLong(40.748672, -73.985628)  // Initial Latitude and Longitude the Map will load into
+            .showLatLong(true)  // Show Coordinates in the Activity
+            .setMapZoom(12.0f)  // Map Zoom Level. Default: 14.0
+            .setAddressRequired(true) // Set If return only Coordinates if cannot fetch Address for the coordinates. Default: True
+            .hideMarkerShadow(true) // Hides the shadow under the map marker. Default: False
+//            .setMarkerDrawable(R.drawable.marker) // Change the default Marker Image
+//            .setMarkerImageImageColor(R.color.colorPrimary)
+//            .setFabColor(R.color.fabColor)
+//            .setPrimaryTextColor(R.color.primaryTextColor) // Change text color of Shortened Address
+//            .setSecondaryTextColor(R.color.secondaryTextColor) // Change text color of full Address
+//            .setBottomViewColor(R.color.bottomViewColor) // Change Address View Background Color (Default: White)
+//            .setMapRawResourceStyle(R.raw.map_style)  //Set Map Style (https://mapstyle.withgoogle.com/)
+//            .setMapType(MapType.NORMAL)
+
+            .setPlaceSearchBar(true, resources.getString(R.string.google_maps_key)) //Activate GooglePlace Search Bar. Default is false/not activated. SearchBar is a chargeable feature by Google
+            .onlyCoordinates(true)  //Get only Coordinates from Place Picker
+            .hideLocationButton(true)   //Hide Location Button (Default: false)
+            .disableMarkerAnimation(true)   //Disable Marker Animation (Default: false)
+            .build(this)
+        Log.i("MapsActivity", "Starting activity for: Google Places")
+        startActivityForResult(builder, 1)
+
 
         try {
-            startActivityForResult(builder.build(this@MapsActivity), PLACE_PICKER_REQUEST)
+//            startActivityForResult(builder.build(this@MapsActivity), PLACE_PICKER_REQUEST)
+
         } catch (e: GooglePlayServicesRepairableException) {
             e.printStackTrace()
         } catch (e: GooglePlayServicesNotAvailableException) {
             e.printStackTrace()
         }
+    }
+
+    private fun loadPlacePicker(){
+        val AUTOCOMPLETE_REQUEST_CODE = 1
+
+        // Set the fields to specify which types of place data to
+        // return after the user has made a selection.
+        val fields = listOf(Place.Field.ID, Place.Field.NAME)
+
+        // Start the autocomplete intent.
+        val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
+            .build(this)
+        startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE)
+
     }
 
 
